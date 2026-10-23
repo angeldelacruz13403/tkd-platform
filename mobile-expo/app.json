@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "TKD Global Hub",
+    "slug": "tkd-global-hub",
+    "version": "2.1.3",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#06090f",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.taekwondo.globalhub",
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "Se necesita Bluetooth para conectar el pulsómetro de entrenamiento.",
+        "NSBluetoothPeripheralUsageDescription": "Se usa Bluetooth para leer la frecuencia cardíaca del sensor.",
+        "NSLocationWhenInUseUsageDescription": "Se necesita acceso a la ubicación para buscar dispositivos BLE cercanos.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Se necesita acceso a la ubicación para detectar pulsómetros compatibles en entornos de entrenamiento."
+      }
+    },
+    "android": {
+      "package": "com.taekwondo.globalhub.trainer",
+      "versionCode": 10,
+      "adaptiveIcon": {
+        "backgroundColor": "#06090f",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      },
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_SCAN",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_CONNECTED_DEVICE",
+        "WAKE_LOCK"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": ["expo-location"],
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "apiUrl": "https://tkdcore.vercel.app/api/v1",
+      "eas": {
+        "projectId": "2763ddb2-737e-4ce6-b670-980f35efd1a3"
+      }
+    },
+    "owner": "angel130403"
+  }
+}

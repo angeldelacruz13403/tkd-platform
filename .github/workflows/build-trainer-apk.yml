@@ -1,0 +1,51 @@
+name: Build trainer APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "mobile-expo/**"
+      - ".github/workflows/build-trainer-apk.yml"
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile-expo
+    env:
+      EXPO_PUBLIC_APP_VARIANT: trainer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: npm
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --no-install --non-interactive
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build standalone release APK
+        run: ./android/gradlew assembleRelease --no-daemon
+
+      - name: Upload standalone trainer APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: tkd-coach-hub-standalone-apk
+          path: mobile-expo/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error

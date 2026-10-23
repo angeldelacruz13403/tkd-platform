@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>TKStrike Match Control</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand__stamp">TKD</div>
+      <div><strong>TKSTRIKE</strong><span>SIMULADOR DE COMBATE</span></div>
+    </div>
+    <div class="topbar__right">
+      <label class="connection"><b>HTTP</b><input id="cfg-http" type="number" min="1" max="65535" style="width:68px"></label>
+      <label class="connection"><b>UDP</b><input id="cfg-udp" type="number" min="1" max="65535" style="width:68px"></label>
+      <span class="connection"><i id="bridge-light"></i><b id="bridge-state">Comprobando bridge</b></span>
+      <span class="connection connection--remote"><i id="vercel-light"></i><b id="vercel-state">Vercel sin comprobar</b></span>
+      <span class="local-tag">LOCAL</span>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="matchbar" aria-label="Recepción de combates OVR">
+      <div class="ovr-heading"><span class="eyebrow">COLA OVR DEL BRIDGE</span><b id="match-id-label">SIN COMBATE ACTIVO</b></div>
+      <label class="field field--compact"><span>TATAMI</span><select id="mat-number"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+      <label class="field field--ovr"><span>COMBATES DISPONIBLES</span><select id="ovr-match"><option value="">Pulsa actualizar para recibir OVR</option></select></label>
+      <button id="refresh-ovr" class="button button--refresh" type="button">ACTUALIZAR OVR</button>
+      <button id="load-ovr" class="button button--load" type="button" disabled>RECIBIR COMBATE</button>
+      <details class="manual-match">
+        <summary>CREAR COMBATE MANUAL DE PRUEBA</summary>
+        <div class="manual-fields">
+          <label class="field"><span>CHONG / AZUL</span><input id="chong-name" value="CHONG" maxlength="40"></label>
+          <label class="field"><span>HONG / ROJO</span><input id="hong-name" value="HONG" maxlength="40"></label>
+          <label class="field field--compact"><span>COMBATE</span><input id="match-number" value="101" maxlength="15"></label>
+          <button id="load-match" class="button button--manual" type="button">CARGAR MANUAL</button>
+        </div>
+      </details>
+    </section>
+
+    <section class="arena" aria-label="Marcador de combate">
+      <article class="corner corner--blue" data-side="blue">
+        <div class="corner__head">
+          <span class="corner__color">CHONG <i>AZUL</i></span>
+          <div class="penalty-count"><small>GAM-JEOM</small><b id="blue-penalties">0</b></div>
+        </div>
+        <h1 id="blue-name" class="corner__name">CHONG</h1>
+        <div class="corner__score-row"><output id="blue-score" class="score">0</output><button class="score-minus" data-side="blue" type="button" aria-label="Restar un punto a Chong">−1</button></div>
+        <div class="score-actions" aria-label="Puntos Chong">
+          <button type="button" data-side="blue" data-points="1" data-kind="PUNCH"><b>+1</b><span>PUÑO</span></button>
+          <button type="button" data-side="blue" data-points="2" data-kind="BODY"><b>+2</b><span>CUERPO</span></button>
+          <button type="button" data-side="blue" data-points="3" data-kind="HEAD"><b>+3</b><span>CABEZA</span></button>
+          <button type="button" data-side="blue" data-points="4" data-kind="TURN_BODY"><b>+4</b><span>GIRO CUERPO</span></button>
+          <button type="button" data-side="blue" data-points="5" data-kind="TURN_HEAD"><b>+5</b><span>GIRO CABEZA</span></button>
+        </div>
+        <button class="penalty-button" data-side="blue" type="button">AÑADIR GAM-JEOM <b>+1 AL ROJO</b></button>
+      </article>
+
+      <section class="clock-panel" aria-label="Reloj y estado">
+        <div class="round-line"><span>ROUND</span><strong id="round-number">1</strong><span id="round-label">R64</span></div>
+        <div id="clock" class="clock" aria-live="off">02:00</div>
+        <div class="clock-meter"><i id="clock-meter-fill"></i></div>
+        <div class="clock-state"><span id="clock-state-light"></span><span id="clock-state">READY</span><span id="clock-packet">SIN PAQUETES</span></div>
+        <div class="clock-controls">
+          <button id="clock-start" class="button button--start" type="button">INICIAR</button>
+          <button id="clock-pause" class="button button--pause" type="button" disabled>PAUSAR</button>
+        </div>
+        <div class="round-controls">
+          <button id="round-prev" type="button" aria-label="Ronda anterior">−</button>
+          <span>RONDA</span>
+          <button id="round-next" type="button" aria-label="Siguiente ronda">+</button>
+          <button id="round-reset" type="button">RELOJ 2:00</button>
+        </div>
+        <button id="finish-match" class="finish-button" type="button" disabled>FINALIZAR COMBATE</button>
+        <div id="winner-banner" class="winner-banner" hidden aria-live="polite">
+          <span>GANADOR POR PUNTOS</span>
+          <strong id="winner-name"></strong>
+          <small id="winner-score"></small>
+        </div>
+        <p id="action-message" class="action-message" role="status">Carga el combate para habilitar los controles.</p>
+      </section>
+
+      <article class="corner corner--red" data-side="red">
+        <div class="corner__head">
+          <span class="corner__color">HONG <i>ROJO</i></span>
+          <div class="penalty-count"><small>GAM-JEOM</small><b id="red-penalties">0</b></div>
+        </div>
+        <h1 id="red-name" class="corner__name">HONG</h1>
+        <div class="corner__score-row"><output id="red-score" class="score">0</output><button class="score-minus" data-side="red" type="button" aria-label="Restar un punto a Hong">−1</button></div>
+        <div class="score-actions" aria-label="Puntos Hong">
+          <button type="button" data-side="red" data-points="1" data-kind="PUNCH"><b>+1</b><span>PUÑO</span></button>
+          <button type="button" data-side="red" data-points="2" data-kind="BODY"><b>+2</b><span>CUERPO</span></button>
+          <button type="button" data-side="red" data-points="3" data-kind="HEAD"><b>+3</b><span>CABEZA</span></button>
+          <button type="button" data-side="red" data-points="4" data-kind="TURN_BODY"><b>+4</b><span>GIRO CUERPO</span></button>
+          <button type="button" data-side="red" data-points="5" data-kind="TURN_HEAD"><b>+5</b><span>GIRO CABEZA</span></button>
+        </div>
+        <button class="penalty-button" data-side="red" type="button">AÑADIR GAM-JEOM <b>+1 AL AZUL</b></button>
+      </article>
+    </section>
+
+    <section class="bottom-row">
+      <div class="live-strip">
+        <div class="live-strip__title"><span class="eyebrow">ESTADO RECIBIDO</span><span id="live-event">--</span></div>
+        <div class="live-stat"><small>ÚLTIMO MATCH</small><b id="live-match">--</b></div>
+        <div class="live-stat"><small>MARCADOR VERCEL</small><b id="live-score">--</b></div>
+        <div class="live-stat"><small>RELOJ VERCEL</small><b id="live-clock">--</b></div>
+        <div class="live-stat"><small>ESTADO</small><b id="live-status">--</b></div>
+      </div>
+      <aside class="event-feed">
+        <div class="feed-heading"><span class="eyebrow">EVENTOS ENVIADOS</span><span id="feed-count">0</span></div>
+        <ol id="event-list" aria-live="polite"><li class="feed-empty">Esperando inicio del combate</li></ol>
+      </aside>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

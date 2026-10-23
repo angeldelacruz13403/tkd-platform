@@ -1,0 +1,30 @@
+{
+  "name": "tkdcore-daedo-udp-bridge",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test",
+    "simulator:test": "node simulator/test-e2e.cjs",
+    "simulator:build": "pkg simulator/TkStrikeSimulator.cjs --targets node22-win-x64 --output simulator/TkStrike-Simulator.exe",
+    "simulator:ui": "node simulator/TkStrikeScoreboardUI.cjs",
+    "simulator:ui:build": "pkg --config package.json simulator/TkStrikeScoreboardUI.cjs --targets node22-win-x64 --output simulator/TkStrike-Match-Control.exe"
+  },
+  "dependencies": {
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "@yao-pkg/pkg": "^6.23.0",
+    "typescript": "^5.6.3"
+  },
+  "pkg": {
+    "assets": [
+      "simulator/ui/index.html",
+      "simulator/ui/styles.css",
+      "simulator/ui/app.js"
+    ]
+  }
+}

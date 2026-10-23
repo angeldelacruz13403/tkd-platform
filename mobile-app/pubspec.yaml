@@ -1,0 +1,26 @@
+name: tkd_mobile_app
+description: "Aplicación móvil oficial del Ecosistema de Taekwondo: telemetría Bluetooth BLE y entrenador con IA."
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_blue_plus: ^1.32.0 # Conexión Bluetooth Low Energy (BLE) a pulsómetros (Polar, Garmin, Wahoo)
+  http: ^1.2.0              # Cliente REST para comunicarse con el Backend en Vercel
+  provider: ^6.1.1          # Gestión de estado reactivo
+  shared_preferences: ^2.2.2 # Persistencia local de token JWT y configuración
+  fl_chart: ^0.68.0          # Gráficas en tiempo real de frecuencia cardíaca y zonas Z1-Z5
+  intl: ^0.19.0             # Formateo de fechas y números
+  audioplayers: ^6.0.0      # Señales sonoras de inicio de asalto, descanso y alertas de FC máxima
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
