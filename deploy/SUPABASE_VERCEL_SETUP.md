@@ -36,6 +36,7 @@ Esta guía te permite dejar todo el ecosistema de **TKD Global Hub** en producci
    - Abre el archivo local [`deploy/supabase-schema.sql`](file:///c:/Users/angel/.gemini/antigravity-ide/scratch/tkd-platform/deploy/supabase-schema.sql), copia todo su contenido, pégalo en el editor SQL de Supabase y pulsa **"Run"** (o Ctrl + Enter).
    - ✅ Verás el mensaje `Success. No rows returned`. Este esquema unificado crea/actualiza las tablas, índices y políticas RLS, incluidas las de torneos e inscripciones.
    - Los archivos `supabase-*-migration.sql` se conservan para instalaciones antiguas que necesiten aplicar solo cambios incrementales. En una instalación nueva o para reparar el esquema, ejecuta únicamente `supabase-schema.sql`.
+   - Para habilitar varios tapices en una instalación existente, ejecuta `deploy/supabase-tournament-multitatami-migration.sql` en el SQL Editor de Supabase.
 4. **Obtener las credenciales**:
    - Ve a **Project Settings** (icono de engranaje abajo a la izquierda) -> **API**.
    - Copia los siguientes valores:

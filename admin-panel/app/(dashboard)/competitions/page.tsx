@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Trophy, Plus, Search, Swords, ShieldAlert, Award, Calendar, CheckCircle2, Edit2, Trash2, Link as LinkIcon, Copy, ExternalLink, Network, Download, FileSpreadsheet, Printer } from "lucide-react";
 import { db } from "@/lib/db";
 import { CompetitionMatch } from "@/lib/types";
+import { createTatamiMatchAllocator } from "@/lib/tournament-tatamis";
 import {
   getTournamentDivisionForAthlete,
   getTournamentWeightCategories,
@@ -36,6 +37,7 @@ type GeneratedBracketBout = {
   matchNum: number;
   round: number;
   tournamentDivision: string;
+  tatamiNumber: number;
   isPlaceholder: boolean;
   sourceMatchNumbers: number[];
 };
@@ -102,6 +104,7 @@ function downloadSvgFromBracketTree(
       const topName = (bout?.a?.fullName || (byeAthlete ? byeAthlete.fullName : (bout?.sourceMatchNumbers?.[0] ? `Ganador #${bout.sourceMatchNumbers[0]}` : `Ganador anterior`))).slice(0, 24);
       const bottomName = (bout?.b?.fullName || (byeAthlete ? "BYE · Pase directo" : (bout?.sourceMatchNumbers?.[1] ? `Ganador #${bout.sourceMatchNumbers[1]}` : `Ganador anterior`))).slice(0, 24);
       const matchNum = bout?.matchNum ? `#${bout.matchNum}` : `R${r + 1}-${m + 1}`;
+      const matchLabel = bout ? `T${bout.tatamiNumber} ${matchNum}` : matchNum;
 
       const x = r * columnWidth + 30;
       const y = centerY - 28;
@@ -114,8 +117,8 @@ function downloadSvgFromBracketTree(
           <text x="12" y="19" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#f8fafc">${topName}</text>
           <line x1="8" y1="28" x2="${cardWidth - 8}" y2="28" stroke="#1e293b" stroke-width="1" />
           <text x="12" y="47" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="${bottomName.includes("BYE") ? "#fbbf24" : "#f8fafc"}">${bottomName}</text>
-          <rect x="${cardWidth - 36}" y="4" width="30" height="14" rx="4" fill="#1e293b" />
-          <text x="${cardWidth - 21}" y="14" font-family="monospace" font-size="9" font-weight="bold" fill="#38bdf8" text-anchor="middle">${matchNum}</text>
+          <rect x="${cardWidth - 58}" y="4" width="52" height="14" rx="4" fill="#1e293b" />
+          <text x="${cardWidth - 32}" y="14" font-family="monospace" font-size="8" font-weight="bold" fill="#38bdf8" text-anchor="middle">${matchLabel}</text>
         </g>
       `;
     }
@@ -146,12 +149,13 @@ function downloadCsvFromBracketTree(
   byes: any[],
   tournamentName = "Competición WT"
 ) {
-  const headers = ["Nº Combate", "Categoría", "Fase", "Ronda", "Atleta Chong (Azul)", "Atleta Hong (Rojo)", "Tipo"];
+  const headers = ["Nº Combate", "Tapiz", "Categoría", "Fase", "Ronda", "Atleta Chong (Azul)", "Atleta Hong (Rojo)", "Tipo"];
   const rows: string[][] = [];
 
   pairs.forEach((p, idx) => {
     rows.push([
       `"${p.matchNum || idx + 1}"`,
+      `"${p.tatamiNumber || ""}"`,
       `"${getWeightLabel(category)}"`,
       `"${p.phase || `Ronda ${Number(p.round) + 1}`}"`,
       `"${Number(p.round) + 1}"`,
@@ -164,6 +168,7 @@ function downloadCsvFromBracketTree(
   byes.forEach((b, idx) => {
     rows.push([
       `"BYE-${idx + 1}"`,
+      `""`,
       `"${getWeightLabel(category)}"`,
       `"Pase directo"`,
       `"1"`,
@@ -293,15 +298,21 @@ function BracketTree({ category, pairs, byes, tournamentName }: { category: stri
               return (
                 <div
                   key={`${category}-${roundIndex}-${matchIndex}`}
-                  className={`absolute flex h-14 flex-col justify-center overflow-hidden rounded-lg border px-2.5 shadow-sm transition-all ${
+                  className={`absolute flex h-16 flex-col justify-center overflow-hidden rounded-lg border px-2.5 shadow-sm transition-all ${
                     byeAthlete
                       ? "border-amber-500/50 bg-amber-950/40"
                       : (isTopAdvanced || isBottomAdvanced)
                       ? "border-sky-500/50 bg-slate-900 ring-1 ring-sky-500/20"
                       : "border-slate-800 bg-slate-900/90"
                   }`}
-                  style={{ left: roundIndex * columnWidth, top: centerY - 28 + 32, width: cardWidth }}
+                  style={{ left: roundIndex * columnWidth, top: centerY - 32 + 32, width: cardWidth }}
                 >
+                  {bout && (
+                    <div className="mb-0.5 flex items-center justify-between text-[8px] font-bold uppercase tracking-wide">
+                      <span className="text-slate-500">Combate #{bout.matchNum}</span>
+                      <span className="text-amber-300">Tapiz {bout.tatamiNumber}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between gap-1">
                     <span className={`truncate text-[10px] font-semibold ${isTopAdvanced ? "text-sky-300 font-bold" : byeAthlete ? "text-amber-200" : "text-slate-300"}`}>
                       {topName}
@@ -345,6 +356,7 @@ export default function CompetitionsPage() {
     venue: "",
     category: "OFFICIAL_WEIGHTS" as TournamentWeightMode,
     tatamiNumber: 1,
+    tatamiCount: 1,
     athleteIds: [] as string[],
     eventAbbreviation: "SEN-M68",
     eventGender: "MALE",
@@ -451,6 +463,7 @@ export default function CompetitionsPage() {
       venue: "",
       category: "OFFICIAL_WEIGHTS",
       tatamiNumber: 1,
+      tatamiCount: 1,
       athleteIds: [],
       eventAbbreviation: "SEN-M68",
       eventGender: "MALE",
@@ -532,6 +545,7 @@ export default function CompetitionsPage() {
         venue: tournament.venue || "",
         category: tournamentMode,
         tatamiNumber: Number(tournament.tatami_number ?? tournament.tatamiNumber) || 1,
+        tatamiCount: Number(tournament.tatami_count ?? tournament.tatamiCount) || 1,
         athleteIds: participants.map((athlete: any) => athlete.id),
       }));
       setGeneratedPairs([]);
@@ -562,8 +576,9 @@ export default function CompetitionsPage() {
 
     const pairs: GeneratedBracketBout[] = [];
     const byes: any[] = [];
-    let boutSequence = 1;
-    const tatamiNumber = Math.min(99, Math.max(1, Number(tournamentData.tatamiNumber) || 1));
+    const tatamiNumber = Number(tournamentData.tatamiNumber) || 1;
+    const tatamiCount = Number(tournamentData.tatamiCount) || 1;
+    const nextTatamiBout = createTatamiMatchAllocator(tatamiNumber, tatamiCount);
     const phaseForBoutCount = (boutCount: number) => {
       if (boutCount <= 1) return "F";
       if (boutCount === 2) return "SF";
@@ -573,7 +588,6 @@ export default function CompetitionsPage() {
       if (boutCount === 32) return "R64";
       return `R${boutCount * 2}`;
     };
-    const nextMatchNumber = () => tatamiNumber * 100 + boutSequence++;
     const unpairedAthletes: any[] = [];
 
     Object.values(groups).forEach((group) => {
@@ -598,7 +612,8 @@ export default function CompetitionsPage() {
         while (shuffled.length >= 2) {
           const firstAthlete = shuffled.pop();
           const secondAthlete = shuffled.pop();
-          const matchNum = nextMatchNumber();
+          const assignment = nextTatamiBout();
+          const matchNum = assignment.matchNumber;
           pairs.push({
             a: firstAthlete,
             b: secondAthlete,
@@ -606,6 +621,7 @@ export default function CompetitionsPage() {
             matchNum,
             round: 0,
             tournamentDivision: firstAthlete.tournamentDivision,
+            tatamiNumber: assignment.tatamiNumber,
             isPlaceholder: false,
             sourceMatchNumbers: [],
           });
@@ -618,7 +634,8 @@ export default function CompetitionsPage() {
         while (shuffled.length >= 2) {
           const firstAthlete = shuffled.pop();
           const secondAthlete = shuffled.pop();
-          const matchNum = nextMatchNumber();
+          const assignment = nextTatamiBout();
+          const matchNum = assignment.matchNumber;
           pairs.push({
             a: firstAthlete,
             b: secondAthlete,
@@ -626,6 +643,7 @@ export default function CompetitionsPage() {
             matchNum,
             round: 0,
             tournamentDivision: firstAthlete.tournamentDivision,
+            tatamiNumber: assignment.tatamiNumber,
             isPlaceholder: false,
             sourceMatchNumbers: [],
           });
@@ -646,7 +664,8 @@ export default function CompetitionsPage() {
             continue;
           }
           const sourceMatchNumbers = [firstSlot.winnerOf, secondSlot.winnerOf].filter((value): value is number => Boolean(value));
-          const matchNum = nextMatchNumber();
+          const assignment = nextTatamiBout();
+          const matchNum = assignment.matchNumber;
           const firstAthlete = firstSlot.athlete || {
             id: "",
             fullName: `Ganador combate ${firstSlot.winnerOf}`,
@@ -668,6 +687,7 @@ export default function CompetitionsPage() {
             matchNum,
             round,
             tournamentDivision: group[0].tournamentDivision,
+            tatamiNumber: assignment.tatamiNumber,
             isPlaceholder: sourceMatchNumbers.length > 0,
             sourceMatchNumbers,
           });
@@ -685,6 +705,10 @@ export default function CompetitionsPage() {
 
     setGeneratedPairs(pairs);
     setByeAthletes(byes);
+    const assignedTatamis = Array.from({ length: tatamiCount }, (_, index) => tatamiNumber + index);
+    const tatamiLabel = assignedTatamis.length === 1
+      ? `el tapiz ${assignedTatamis[0]}`
+      : `los tapices ${assignedTatamis.join(", ")}`;
     if (unpairedAthletes.length > 0) {
       toast.warning("Atletas fuera del sorteo", `${unpairedAthletes.length} atleta(s) no tienen rival en su categoría y no se añadieron al bracket.`);
       return;
@@ -692,8 +716,8 @@ export default function CompetitionsPage() {
     toast.success(
       "Pirámide de torneo generada",
       byes.length > 0
-        ? `${pairs.length} combates listos. ${byes.length} atleta(s) avanzan directamente por BYE.`
-        : `${pairs.length} combates listos en el bracket piramidal.`
+        ? `${pairs.length} combates repartidos en ${tatamiLabel}. ${byes.length} atleta(s) avanzan directamente por BYE.`
+        : `${pairs.length} combates repartidos en ${tatamiLabel}.`
     );
   };
 
@@ -742,7 +766,7 @@ export default function CompetitionsPage() {
       const matchPayload = {
         id: `bracket-${draftTournamentIdRef.current}-${pair.matchNum}`.slice(0, 50),
         tournamentId: draftTournamentIdRef.current,
-        tatamiNumber: tournamentData.tatamiNumber,
+        tatamiNumber: pair.tatamiNumber,
         round: pair.round,
         isPlaceholder: pair.isPlaceholder,
         sourceMatchNumbers: pair.sourceMatchNumbers,
@@ -873,9 +897,16 @@ export default function CompetitionsPage() {
     setIsSendingGeneratedMatches(false);
     const allBracketRecordsSaved = created === generatedPairs.length && createdByes === byeAthletes.length;
     const allBoutsQueued = sentToBridge === generatedPairs.length;
+    const assignedTatamis = Array.from(
+      { length: Number(tournamentData.tatamiCount) || 1 },
+      (_, index) => Number(tournamentData.tatamiNumber) + index
+    );
+    const tatamiLabel = assignedTatamis.length === 1
+      ? `el tapiz ${assignedTatamis[0]}`
+      : `los tapices ${assignedTatamis.join(", ")}`;
     if (created > 0 || createdByes > 0) {
       if (allBracketRecordsSaved && allBoutsQueued) {
-        toast.success("Bracket enviado a TkStrike", `${created} combates, incluidas las rondas pendientes, están en la cola del tatami ${tournamentData.tatamiNumber}. ${bridgeQueueCleared ? "Se reemplazó la cola anterior." : "No se pudo confirmar el vaciado previo de la cola."}`);
+        toast.success("Bracket enviado a TkStrike", `${created} combates, incluidas las rondas pendientes, están en la cola de ${tatamiLabel}. ${bridgeQueueCleared ? "Se reemplazó la cola anterior." : "No se pudo confirmar el vaciado previo de la cola."}`);
       } else {
         const failureDetails = [
           ...apiFailures.slice(0, 3).map((failure) => `API ${failure}`),
@@ -1663,17 +1694,43 @@ export default function CompetitionsPage() {
                   </p>
                 </div>
               </div>
-              <div className="max-w-xs">
-                <label className="mb-1.5 block text-slate-400">Tatami</label>
-                <select
-                  value={tournamentData.tatamiNumber}
-                  onChange={(event) => setTournamentData({ ...tournamentData, tatamiNumber: Number(event.target.value) })}
-                  className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-white"
-                >
-                  {Array.from({ length: 8 }, (_, index) => index + 1).map((tatami) => (
-                    <option key={tatami} value={tatami}>Tatami {tatami} · combate {tatami}01 en adelante</option>
-                  ))}
-                </select>
+              <div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1.5 block text-slate-400">Tapiz inicial</label>
+                    <select
+                      value={tournamentData.tatamiNumber}
+                      onChange={(event) => {
+                        const tatamiNumber = Number(event.target.value);
+                        setTournamentData((current) => ({
+                          ...current,
+                          tatamiNumber,
+                          tatamiCount: Math.min(current.tatamiCount, 9 - tatamiNumber),
+                        }));
+                      }}
+                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-white"
+                    >
+                      {Array.from({ length: 8 }, (_, index) => index + 1).map((tatami) => (
+                        <option key={tatami} value={tatami}>Tapiz {tatami} · combate {tatami}01 en adelante</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-slate-400">Número de tapices</label>
+                    <select
+                      value={tournamentData.tatamiCount}
+                      onChange={(event) => setTournamentData({ ...tournamentData, tatamiCount: Number(event.target.value) })}
+                      className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-white"
+                    >
+                      {Array.from({ length: 9 - tournamentData.tatamiNumber }, (_, index) => index + 1).map((count) => (
+                        <option key={count} value={count}>{count} {count === 1 ? "tapiz" : "tapices"}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <p className="mt-1.5 text-[10px] text-slate-500">
+                  Los combates se reparten por turnos desde el tapiz inicial; por ejemplo, 2 tapices desde el 1 usa los tapices 1 y 2.
+                </p>
               </div>
               <div>
                 <label className="block text-slate-400 mb-2">Atletas elegibles y peso de inscripción</label>

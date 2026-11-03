@@ -69,9 +69,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "El torneo necesita al menos un nombre para crearse." }, { status: 400 });
     }
     const registeredAthletes = Array.isArray(body.registeredAthletes) ? body.registeredAthletes : [];
-    const tatamiNumber = Number(body.tatamiNumber) || 1;
-    if (!Number.isInteger(tatamiNumber) || tatamiNumber < 1 || tatamiNumber > 8) {
-      return NextResponse.json({ success: false, error: "El tatami debe ser un número entre 1 y 8." }, { status: 400 });
+    const tatamiNumber = Number(body.tatamiNumber ?? 1);
+    const tatamiCount = Number(body.tatamiCount ?? 1);
+    if (
+      !Number.isInteger(tatamiNumber) ||
+      tatamiNumber < 1 ||
+      tatamiNumber > 8 ||
+      !Number.isInteger(tatamiCount) ||
+      tatamiCount < 1 ||
+      tatamiNumber + tatamiCount - 1 > 8
+    ) {
+      return NextResponse.json({
+        success: false,
+        error: "El tapiz inicial debe estar entre 1 y 8 y el número de tapices no puede superar el tapiz 8.",
+      }, { status: 400 });
     }
     const tournament = {
       id: String(body.id || `tournament-${Date.now()}`).slice(0, 50),
@@ -80,6 +91,7 @@ export async function POST(request: Request) {
       venue: body.venue || "",
       category: body.category || "",
       tatami_number: tatamiNumber,
+      tatami_count: tatamiCount,
       club_id: access.session.role === "ADMIN" ? body.clubId || null : access.clubId,
       registered_athletes: registeredAthletes,
     };

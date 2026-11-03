@@ -24,6 +24,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { CompetitionMatch } from "@/lib/types";
+import { createTatamiMatchAllocator } from "@/lib/tournament-tatamis";
 
 export const CATEGORY_WEIGHT_LABELS: Record<string, string> = {
   OLYMPIC_M_58: "Olympic M -58kg",
@@ -67,6 +68,7 @@ interface BracketViewerProps {
     venue?: string;
     category?: string;
     tatami_number?: number;
+    tatami_count?: number;
     registered_athletes?: any[];
   };
   matches: CompetitionMatch[];
@@ -95,6 +97,25 @@ export function BracketViewer({
     () => matches.filter((m) => m.tournamentId === tournament.id),
     [matches, tournament.id]
   );
+  const tournamentTatamiNumbers = useMemo(() => {
+    const assignedTatamis = Array.from(new Set(
+      tournamentMatches
+        .filter((match) => !match.isBye)
+        .map((match) => Number(match.tatamiNumber))
+        .filter((tatamiNumber) => Number.isInteger(tatamiNumber) && tatamiNumber >= 1 && tatamiNumber <= 8)
+    )).sort((first, second) => first - second);
+    if (assignedTatamis.length > 0) return assignedTatamis;
+
+    const firstTatami = Number(tournament.tatami_number) || 1;
+    const tatamiCount = Math.min(
+      9 - firstTatami,
+      Math.max(1, Number(tournament.tatami_count) || 1)
+    );
+    return Array.from({ length: tatamiCount }, (_, index) => firstTatami + index);
+  }, [tournamentMatches, tournament.tatami_number, tournament.tatami_count]);
+  const tatamiLabel = tournamentTatamiNumbers.length === 1
+    ? `Tapiz ${tournamentTatamiNumbers[0]}`
+    : `Tapices ${tournamentTatamiNumbers.join(", ")}`;
 
   // Obtener categorías únicas con combates o inscritos
   const categories = useMemo(() => {
@@ -145,14 +166,18 @@ export function BracketViewer({
 
     const synthMatches: CompetitionMatch[] = [];
     let matchCounter = 1;
+    const nextTatamiBout = createTatamiMatchAllocator(
+      Number(tournament.tatami_number) || 1,
+      Number(tournament.tatami_count) || 1
+    );
 
     for (let i = 0; i < firstRoundPairsCount; i++) {
       const a = athletes[i * 2];
       const b = athletes[i * 2 + 1];
-      const currentMatchNum = String(matchCounter++);
+      const assignment = nextTatamiBout();
       synthMatches.push({
         id: `synth-${i + 1}`,
-        matchNumber: currentMatchNum,
+        matchNumber: String(assignment.matchNumber),
         tournamentId: tournament.id,
         tournamentName: tournament.name,
         athleteId: a.id || a.athleteId || `ath-${i * 2}`,
@@ -169,7 +194,7 @@ export function BracketViewer({
         corner: "CHONG",
         phase: size <= 4 ? "Semifinal" : size <= 8 ? "Cuartos de final" : "Ronda 1",
         round: 0,
-        tatamiNumber: tournament.tatami_number || 1,
+        tatamiNumber: assignment.tatamiNumber,
         date: tournament.date || new Date().toISOString(),
         result: "",
         round1Score: { athlete: 0, opponent: 0 },
@@ -218,7 +243,7 @@ export function BracketViewer({
       }
     }
     return synthMatches;
-  }, [tournamentMatches, currentCategory, tournament.registered_athletes, tournament.category, tournament.id, tournament.name, tournament.tatami_number, tournament.date]);
+  }, [tournamentMatches, currentCategory, tournament.registered_athletes, tournament.category, tournament.id, tournament.name, tournament.tatami_number, tournament.tatami_count, tournament.date]);
 
   const firstRoundMatches = useMemo(
     () => categoryMatches.filter((m) => Number(m.round) === 0 && !m.isBye),
@@ -415,23 +440,28 @@ export function BracketViewer({
       for (let m = 0; m < matchCount; m++) {
         const centerY = (m * slotsPerMatch + slotsPerMatch / 2) * slotHeight + 110;
         const x = r * columnWidth + 30;
-        const y = centerY - 28;
+        const cardHeight = 78;
+        const y = centerY - cardHeight / 2;
         const bout = roundBouts[m];
         const isFinished = bout?.result && bout?.winner;
         const topName = (bout?.athleteName || "Por determinar").slice(0, 24);
         const bottomName = (bout?.opponentName || (r === 0 ? "BYE · Pase directo" : "Por clasificar")).slice(0, 24);
         const matchNum = bout?.matchNumber ? `#${bout.matchNumber}` : `M${r + 1}-${m + 1}`;
+        const tatamiNum = bout?.tatamiNumber ?? tournament.tatami_number ?? 1;
 
         svgCards += `
           <g transform="translate(${x}, ${y})">
-            <rect width="${cardWidth}" height="56" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.5" />
-            <rect x="0" y="0" width="4" height="28" rx="2" fill="#0284c7" />
-            <rect x="0" y="28" width="4" height="28" rx="2" fill="#e11d48" />
-            <text x="12" y="19" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#f8fafc">${topName}</text>
-            <line x1="8" y1="28" x2="${cardWidth - 8}" y2="28" stroke="#1e293b" stroke-width="1" />
-            <text x="12" y="47" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="${bottomName.includes("BYE") ? "#fbbf24" : "#f8fafc"}">${bottomName}</text>
-            <rect x="${cardWidth - 36}" y="4" width="30" height="14" rx="4" fill="#1e293b" />
-            <text x="${cardWidth - 21}" y="14" font-family="monospace" font-size="9" font-weight="bold" fill="#38bdf8" text-anchor="middle">${matchNum}</text>
+            <rect width="${cardWidth}" height="${cardHeight}" rx="8" fill="#0f172a" stroke="#334155" stroke-width="1.5" />
+            <rect x="0" y="0" width="${cardWidth}" height="25" rx="8" fill="#111827" />
+            <rect x="0" y="18" width="${cardWidth}" height="7" fill="#111827" />
+            <text x="10" y="18" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#f8fafc">COMBATE ${matchNum}</text>
+            <rect x="${cardWidth - 84}" y="3" width="76" height="19" rx="5" fill="#422006" />
+            <text x="${cardWidth - 46}" y="17" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#fbbf24" text-anchor="middle">TAPIZ ${tatamiNum}</text>
+            <rect x="0" y="25" width="4" height="26" fill="#0284c7" />
+            <text x="12" y="44" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#f8fafc">${topName}</text>
+            <line x1="8" y1="51" x2="${cardWidth - 8}" y2="51" stroke="#1e293b" stroke-width="1" />
+            <rect x="0" y="52" width="4" height="26" fill="#e11d48" />
+            <text x="12" y="70" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="${bottomName.includes("BYE") ? "#fbbf24" : "#f8fafc"}">${bottomName}</text>
           </g>
         `;
       }
@@ -442,7 +472,7 @@ export function BracketViewer({
   <rect width="100%" height="100%" fill="#070b14" />
   <!-- Header -->
   <text x="30" y="40" font-family="Arial, sans-serif" font-size="20" font-weight="900" fill="#ffffff">${tournament.name}</text>
-  <text x="30" y="65" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#38bdf8">${getCategoryLabel(currentCategory)} · Tatami #${tournament.tatami_number || 1} · Cuadro Piramidal Oficial WT</text>
+  <text x="30" y="65" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#38bdf8">${getCategoryLabel(currentCategory)} · ${tatamiLabel} · Cuadro Piramidal Oficial WT</text>
   <text x="30" y="85" font-family="Arial, sans-serif" font-size="11" fill="#64748b">Generado por TKD Platform · ${new Date().toLocaleDateString("es-ES")}</text>
   ${svgPaths}
   ${svgCards}
@@ -489,6 +519,10 @@ export function BracketViewer({
             border: 1.5px solid #000 !important;
             box-shadow: none !important;
           }
+          .print-card-header {
+            background: white !important;
+            border-bottom: 1px solid #000 !important;
+          }
           .print-card-blue {
             border-left: 4px solid #0284c7 !important;
           }
@@ -517,7 +551,7 @@ export function BracketViewer({
                 {tournament.name}
               </h2>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-950 text-sky-300 border border-sky-800/50">
-                Tatami {tournament.tatami_number || 1}
+                {tatamiLabel}
               </span>
             </div>
             <p className="text-xs text-slate-400">
@@ -797,7 +831,7 @@ export function BracketViewer({
         <div className="hidden print:block mb-4 pb-2 border-b border-black">
           <h1 className="text-xl font-black uppercase text-black">{tournament.name}</h1>
           <p className="text-sm font-bold text-black">
-            Categoría: {getCategoryLabel(currentCategory)} · Tatami #{tournament.tatami_number || 1} · Cuadro Oficial WT
+            Categoría: {getCategoryLabel(currentCategory)} · {tatamiLabel} · Cuadro Oficial WT
           </p>
           <p className="text-xs text-black">Fecha: {tournament.date ? new Date(tournament.date).toLocaleDateString("es-ES") : "Fecha oficial"} | Plataforma Oficial TKD Hub</p>
         </div>
@@ -877,6 +911,7 @@ export function BracketViewer({
 
                 return Array.from({ length: matchCount }).map((__, matchIndex) => {
                   const centerY = (matchIndex * slotsPerMatch + slotsPerMatch / 2) * slotHeight;
+                  const cardHeight = 78;
                   const bout = roundBouts[matchIndex];
                   const isFinished = bout?.result && bout?.winner;
                   const isTopWinner = bout?.winner === "CHONG";
@@ -903,15 +938,25 @@ export function BracketViewer({
                       }`}
                       style={{
                         left: roundIndex * columnWidth,
-                        top: centerY - 28 + 38,
+                        top: centerY - cardHeight / 2 + 38,
                         width: cardWidth,
-                        height: 58,
+                        height: cardHeight,
                         opacity: isRoundActive ? 1 : 0.25,
                         transition: "opacity 0.3s ease, box-shadow 0.2s ease",
                       }}
                     >
+                      <div className="print-card-header flex h-[25px] items-center justify-between gap-1 border-b border-slate-800 bg-slate-950/90 px-2">
+                        <div className="flex min-w-0 items-center gap-1">
+                          <span className="shrink-0 text-[9px] font-black uppercase tracking-wide text-slate-400">Combate</span>
+                          <span className="truncate font-mono text-[14px] font-black leading-none text-white">{matchNumber}</span>
+                        </div>
+                        <span className="shrink-0 rounded bg-amber-950 px-1.5 py-0.5 text-[11px] font-black uppercase text-amber-300">
+                          Tapiz {bout?.tatamiNumber ?? tournament.tatami_number ?? 1}
+                        </span>
+                      </div>
+
                       {/* Top Fighter: Chong (Blue) */}
-                      <div className={`flex items-center justify-between px-2.5 py-1 border-b border-slate-800/80 print-card-blue ${isTopWinner ? "bg-sky-950/40" : ""}`}>
+                      <div className={`print-card-blue flex h-[26px] items-center justify-between border-b border-slate-800/80 px-2.5 ${isTopWinner ? "bg-sky-950/40" : ""}`}>
                         <div className="flex items-center gap-1.5 truncate">
                           <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0"></span>
                           <span className={`text-[11px] font-semibold truncate ${isTopWinner ? "text-sky-300 font-bold" : "text-slate-200"}`}>
@@ -931,7 +976,7 @@ export function BracketViewer({
                       </div>
 
                       {/* Bottom Fighter: Hong (Red) */}
-                      <div className={`flex items-center justify-between px-2.5 py-1 print-card-red ${isBottomWinner ? "bg-rose-950/40" : ""}`}>
+                      <div className={`print-card-red flex h-[26px] items-center justify-between px-2.5 ${isBottomWinner ? "bg-rose-950/40" : ""}`}>
                         <div className="flex items-center gap-1.5 truncate">
                           <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0"></span>
                           <span className={`text-[11px] font-semibold truncate ${bottomName.includes("BYE") ? "text-amber-300 italic text-[10px]" : isBottomWinner ? "text-rose-300 font-bold" : "text-slate-300"}`}>
@@ -950,12 +995,6 @@ export function BracketViewer({
                         </div>
                       </div>
 
-                      {/* Match Number badge */}
-                      <div className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none">
-                        <span className="text-[8px] font-mono font-bold text-slate-500 bg-slate-950 px-1 py-0.5 rounded border border-slate-800">
-                          {matchNumber}
-                        </span>
-                      </div>
                     </div>
                   );
                 });
